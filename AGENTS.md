@@ -199,9 +199,11 @@ checks do not make the Blueprint unusable.
 ## Commands
 
 - Dev server: `npm run dev` (http://localhost:3000)
-- Build: `npm run build`
+- Build: `npm run build` (runs `prisma generate`, then `next build`)
 - Production server: `npm run start`
 - Lint: `npm run lint`
+- Migrate: `npm run db:migrate` (Prisma migrations, over the unpooled `DIRECT_URL`)
+- Seed: `npm run db:seed`
 
 No test command is configured, so tests are not a gate in this project yet. Run
 `/tests` or `$tests` to add a unit test runner and record the real test command

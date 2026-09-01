@@ -70,7 +70,7 @@ cleaned-up checkbox version before generating the project overview.
 
 ## MVP - the three-hour build box
 
-- [ ] 1. **Seeded portal data** - Prisma schema for creator, channel accounts,
+- [x] 1. **Seeded portal data** - Prisma schema for creator, channel accounts,
   posts, ledger entries, and payout requests; first migration against Neon; seed
   script producing one creator, four channels, about a dozen posts, and a ledger
   that yields a real available balance and pending earnings

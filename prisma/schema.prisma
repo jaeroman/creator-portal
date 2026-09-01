@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Platform {
+  INSTAGRAM
+  YOUTUBE
+  TIKTOK
+  X
+}
+
+enum ChannelStatus {
+  CONNECTED
+  DISCONNECTED
+}
+
+enum LedgerEntryType {
+  EARNING_PENDING
+  EARNING_CLEARED
+  PAYOUT_HOLD
+  PAYOUT_HOLD_RELEASE
+  PAYOUT
+  ADJUSTMENT
+}
+
+enum PayoutStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Exactly one row exists. The portal resolves it on the server rather than
+/// taking a creator id from the client.
+model Creator {
+  id          String   @id @default(cuid())
+  displayName String
+  handle      String   @unique
+  createdAt   DateTime @default(now())
+
+  channelAccounts ChannelAccount[]
+  ledgerEntries   LedgerEntry[]
+  payoutRequests  PayoutRequest[]
+}
+
+model ChannelAccount {
+  id            String        @id @default(cuid())
+  creatorId     String
+  platform      Platform
+  handle        String
+  status        ChannelStatus
+  followerCount Int
+  /// Null until the channel has synced at least once.
+  lastSyncedAt  DateTime?
+
+  creator Creator @relation(fields: [creatorId], references: [id])
+  posts   Post[]
+
+  @@unique([creatorId, platform])
+}
+
+model Post {
+  id               String   @id @default(cuid())
+  channelAccountId String
+  /// The platform's own id for the post.
+  externalId       String
+  title            String
+  thumbnailUrl     String?
+  postedAt         DateTime
+  viewCount        Int
+  likeCount        Int
+  commentCount     Int
+
+  channelAccount ChannelAccount @relation(fields: [channelAccountId], references: [id])
+
+  @@unique([channelAccountId, externalId])
+  @@index([channelAccountId, postedAt])
+}
+
+/// Append-only. A correction is a new row, never an edit or a delete.
+model LedgerEntry {
+  id              String          @id @default(cuid())
+  creatorId       String
+  type            LedgerEntryType
+  /// Signed minor units (US cents). Holds and payouts are negative; earnings,
+  /// releases, and adjustments are positive.
+  amountMinor     Int
+  description     String
+  /// Set on the four payout-related types, null otherwise.
+  payoutRequestId String?
+  createdAt       DateTime        @default(now())
+
+  creator       Creator        @relation(fields: [creatorId], references: [id])
+  payoutRequest PayoutRequest? @relation(fields: [payoutRequestId], references: [id])
+
+  @@index([creatorId, createdAt])
+}
+
+model PayoutRequest {
+  id             String       @id @default(cuid())
+  creatorId      String
+  /// Minor units (US cents), always positive. Enforced by the request action in
+  /// feature 6; Prisma cannot express the check constraint.
+  amountMinor    Int
+  status         PayoutStatus
+  /// Minted when the form renders. The unique index is what makes a duplicate
+  /// submission fail in the database rather than in application code.
+  idempotencyKey String       @unique
+  createdAt      DateTime     @default(now())
+  decidedAt      DateTime?
+  decisionNote   String?
+
+  creator       Creator       @relation(fields: [creatorId], references: [id])
+  ledgerEntries LedgerEntry[]
+}

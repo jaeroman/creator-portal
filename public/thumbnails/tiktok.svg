@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" role="img" aria-label="TikTok placeholder thumbnail">
+  <rect width="320" height="180" fill="#101418"/>
+  <rect x="8" y="8" width="304" height="164" fill="none" stroke="#e6fbff" stroke-opacity="0.35" stroke-width="2"/>
+  <text x="160" y="88" fill="#e6fbff" font-family="system-ui, sans-serif" font-size="22" font-weight="600" text-anchor="middle">TikTok</text>
+  <text x="160" y="114" fill="#e6fbff" fill-opacity="0.7" font-family="system-ui, sans-serif" font-size="13" text-anchor="middle">seeded placeholder</text>
+</svg>
