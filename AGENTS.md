@@ -204,12 +204,14 @@ checks do not make the Blueprint unusable.
 - Lint: `npm run lint`
 - Migrate: `npm run db:migrate` (Prisma migrations, over the unpooled `DIRECT_URL`)
 - Seed: `npm run db:seed`
+- Test: `npm test` (Vitest, run once)
+- Test watch: `npm run test:watch`
 - Browser tests: `npm run test:browser` (Playwright, Chromium; starts `npm run dev` itself)
 
-No test command is configured, so tests are not a gate in this project yet. Run
-`/tests` or `$tests` to add a unit test runner and record the real test command
-here. No `Verify` command exists either; run `/ci` or `$ci` when you want one
-combined command plus automatic GitHub checks.
+Tests are a gate: a step that adds logic ships a passing test in the same diff.
+Vitest runs in Node against `**/*.test.ts` beside the source it covers, so
+Playwright keeps `e2e/*.spec.ts` to itself. No `Verify` command exists; run
+`/ci` or `$ci` when you want one combined command plus automatic GitHub checks.
 
 Browser tests run through Playwright (Chromium) against the real app. The
 harness reuses this project's running dev server when there is one, and

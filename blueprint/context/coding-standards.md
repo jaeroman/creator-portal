@@ -86,13 +86,10 @@ needs them rather than up front.
 
 ## Testing
 
-No test runner is configured in this project, so the test gate is currently off.
-Testing is opt-in at the project level,
-because the overlay can't know your stack. Adding unit testing is an explicit
-setup task the AI can do through the normal workflow, either as a build-plan item
-or with `/tests`. The setup should choose the stack-native runner, wire the
-scripts or commands, add a small example test, and update the Commands section
-of `AGENTS.md`.
+Vitest is configured and `npm test` is declared in `AGENTS.md`, so the test gate
+is on. Config lives in `vitest.config.mts`; it collects `**/*.test.ts` only,
+leaving Playwright's `e2e/*.spec.ts` alone, and resolves the `@/*` alias the same
+way the app does.
 
 When `AGENTS.md` declares a `Verify` command, treat it as the umbrella automated
 gate. It combines only the checks this project actually has, in this order when
