@@ -1,0 +1,1 @@
+- [Build order, payout first](build-order-payout-first.md) — feature 4 deferred; build 5, /tests, 6, then 4.
