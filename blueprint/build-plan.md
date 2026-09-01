@@ -82,7 +82,7 @@ cleaned-up checkbox version before generating the project overview.
 - [ ] 4. **Recent posts feed** - unified list across channels sorted by date,
   showing thumbnail or title, source channel, date, and engagement numbers, with
   a channel filter held in the URL
-- [ ] 5. **Wallet overview** - available balance, pending earnings, and
+- [x] 5. **Wallet overview** - available balance, pending earnings, and
   transaction history, every figure derived from the ledger
 - [ ] 6. **Payout request lifecycle** - the depth slice. Request against
   available balance, overdraft rejection, idempotent submission, funds held while

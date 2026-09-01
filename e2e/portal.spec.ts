@@ -38,3 +38,38 @@ test("navigates between portal sections", async ({ page }) => {
     "page",
   );
 });
+
+test("wallet shows balances derived from the seeded ledger", async ({
+  page,
+}) => {
+  await page.goto("/wallet");
+
+  // The seed sums to these exactly: pending 34000 and available 128450 minor
+  // units. Asserting the rendered strings covers the derivation and the
+  // integer-only formatter in one go.
+  const available = page.getByRole("heading", { name: "Available balance" });
+  await expect(available.locator("..")).toContainText("$1,284.50");
+
+  const pending = page.getByRole("heading", { name: "Pending earnings" });
+  await expect(pending.locator("..")).toContainText("$340.00");
+});
+
+test("wallet history collapses a payout request into one row", async ({
+  page,
+}) => {
+  await page.goto("/wallet");
+
+  const rows = page.getByRole("table").locator("tbody tr");
+
+  // 8 ledger entries with no payout request behind them, plus 1 request.
+  await expect(rows).toHaveCount(9);
+  await expect(rows.first()).toContainText("$155.00");
+  await expect(rows.last()).toContainText("$425.00");
+
+  // The seeded request is backed by three ledger rows. Exactly one row may
+  // carry its amount, which is what proves the collapse rather than a filter.
+  const payoutRows = rows.filter({ hasText: "Payout request" });
+  await expect(payoutRows).toHaveCount(1);
+  await expect(payoutRows).toContainText("-$440.00");
+  await expect(payoutRows).toContainText("Approved");
+});
