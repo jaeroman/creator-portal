@@ -204,13 +204,17 @@ checks do not make the Blueprint unusable.
 - Lint: `npm run lint`
 - Migrate: `npm run db:migrate` (Prisma migrations, over the unpooled `DIRECT_URL`)
 - Seed: `npm run db:seed`
+- Browser tests: `npm run test:browser` (Playwright, Chromium; starts `npm run dev` itself)
 
 No test command is configured, so tests are not a gate in this project yet. Run
 `/tests` or `$tests` to add a unit test runner and record the real test command
 here. No `Verify` command exists either; run `/ci` or `$ci` when you want one
 combined command plus automatic GitHub checks.
 
-Browser testing is also opt-in. Run `/browser-tests` or `$browser-tests` to add
-or normalize a browser harness and document its exact command as `Browser
-tests`. Check and Continuous Mode can then reuse it without installing tooling
-mid-feature.
+Browser tests run through Playwright (Chromium) against the real app. The
+harness reuses this project's running dev server when there is one, and
+otherwise starts its own on port 3100; set PORT to point it somewhere else. It
+needs a reachable `DATABASE_URL`, because the smoke path asserts seeded data,
+and it is read-only, so it never mutates portal state. It is not part of Verify
+and there is no CI, so run it directly; `/check` and Continuous Mode reuse this
+same command.
