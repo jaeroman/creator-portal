@@ -1,36 +1,36 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
+## Project Overview
+- A single-creator portal for working with a talent agency: connected channels, a unified post feed, and a wallet whose payout requests move through a real lifecycle.
 
-First, run the development server:
+## Tech stack
+- **Next.js 16 (App Router)** - server-rendered routes, server components by
+  default
+- **React 19** - UI
+- **TypeScript (strict)** - no `any`
+- **Tailwind CSS v4** - styling through CSS-first theme tokens in
+  `app/globals.css`, no component library
+- **Prisma ORM** - schema, migrations, and the transactional payout write
+- **Neon Postgres** - provisioned through Vercel Storage; chosen over SQLite
+  because Vercel's filesystem is ephemeral and because real isolation levels
+  make invariant 4 provable
+- **Server Actions** - all mutations; no API routes are needed at this scope
+- **Vitest** - unit tests scoped to the payout and balance logic
+- **npm** - package manager
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Chosen Slice
+> I chose Slice B (Payout Request). I want features that have lifecycle, database work like history or records. I'm into logic and understanding how payout or this feature works like receiving payments, adding amounts amounting to the total balance, conditions to check whenever a payout is being made.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Assumptions made
+- Since we didn't have logins or other roles, I added stand-in controls for payout reviews and approval
+- Added lifecycle for payment that are cleared and not cleared which then goes into the available balance
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## What would I have built with more time
+- Login/Auth, Roles
+- Recent Posts page
+- Page for Payout approvals
+- Payout approve/reject description
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Changed by me
+- How the history will look if the payout request is rejected, AI wanted to just put -$50.00 instead of $0 which can cause confusion to the user.
+- Added the Stand-in controls to simulate the lifecycle
