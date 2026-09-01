@@ -74,7 +74,7 @@ cleaned-up checkbox version before generating the project overview.
   posts, ledger entries, and payout requests; first migration against Neon; seed
   script producing one creator, four channels, about a dozen posts, and a ledger
   that yields a real available balance and pending earnings
-- [ ] 2. **Portal shell** - shared layout and persistent navigation across the
+- [x] 2. **Portal shell** - shared layout and persistent navigation across the
   three routes
 - [ ] 3. **Connected accounts** - list each linked channel with connection state,
   follower count, and last synced time, with connect and disconnect actions that
