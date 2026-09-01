@@ -1,5 +1,4 @@
-import { LedgerEntryType } from "@/lib/generated/prisma/enums";
-import type { PayoutStatus } from "@/lib/generated/prisma/enums";
+import { LedgerEntryType, PayoutStatus } from "@/lib/generated/prisma/enums";
 import type { Prisma, PrismaClient } from "@/lib/generated/prisma/client";
 
 // Feature 6 re-reads the available balance inside a serializable transaction
@@ -45,10 +44,25 @@ export type WalletHistoryRow =
       kind: "payout";
       id: string;
       date: Date;
+      /// Net effect on available balance, which is zero for a rejection.
       amountMinor: number;
+      /// What was asked for, always positive. A rejected row nets to zero, so
+      /// this is the only place the figure survives.
+      requestedMinor: number;
       status: PayoutStatus;
       decidedAt: Date | null;
     };
+
+// Every row in the history means the same thing by its amount: what it did to
+// available balance. A rejection placed a hold and released it, so it did
+// nothing, and showing the requested figure as money out contradicts the
+// balance above the table.
+export function payoutNetMinor(
+  status: PayoutStatus,
+  amountMinor: number,
+): number {
+  return status === PayoutStatus.REJECTED ? 0 : -amountMinor;
+}
 
 // A payout request writes one to three ledger rows, so showing raw ledger rows
 // would make a single withdrawal look like three events. The request collapses
@@ -82,8 +96,8 @@ export async function getWalletHistory(
       id: payout.id,
       // The request date, because that is when the hold moved the balance.
       date: payout.createdAt,
-      // Stored positive; shown as money leaving, matching the ledger's sign.
-      amountMinor: -payout.amountMinor,
+      amountMinor: payoutNetMinor(payout.status, payout.amountMinor),
+      requestedMinor: payout.amountMinor,
       status: payout.status,
       decidedAt: payout.decidedAt,
     })),

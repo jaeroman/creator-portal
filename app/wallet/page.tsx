@@ -32,8 +32,10 @@ function describe(row: WalletHistoryRow): string {
     return row.description;
   }
 
+  // The amount column reads $0.00 for a rejection, because that is the net
+  // effect, so the requested figure is named here or it is lost.
   return row.status === PayoutStatus.REJECTED
-    ? "Payout request, funds returned to your balance"
+    ? `Payout request for ${formatMinor(row.requestedMinor)}, funds returned to your balance`
     : "Payout request";
 }
 
