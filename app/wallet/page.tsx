@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import PayoutDecisionPanel from "@/components/wallet/PayoutDecisionPanel";
 import PayoutRequestForm from "@/components/wallet/PayoutRequestForm";
 import SummaryCard from "@/components/wallet/SummaryCard";
 import { PayoutStatus } from "@/lib/generated/prisma/enums";
@@ -38,19 +39,21 @@ function describe(row: WalletHistoryRow): string {
 
 export default async function WalletPage() {
   const creator = await getCreator();
-  const [availableMinor, pendingMinor, history] = await Promise.all([
-    sumAvailableBalance(prisma, creator.id),
-    sumPendingEarnings(prisma, creator.id),
-    getWalletHistory(prisma, creator.id),
-  ]);
+  const [availableMinor, pendingMinor, history, pendingRequests] =
+    await Promise.all([
+      sumAvailableBalance(prisma, creator.id),
+      sumPendingEarnings(prisma, creator.id),
+      getWalletHistory(prisma, creator.id),
+      prisma.payoutRequest.findMany({
+        where: { creatorId: creator.id, status: PayoutStatus.PENDING },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, amountMinor: true, createdAt: true },
+      }),
+    ]);
 
   return (
     <>
       <h1 className="text-xl font-semibold">Wallet</h1>
-      <p className="mt-2 text-muted">
-        Every figure below is summed from the ledger, never stored.
-      </p>
-
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <SummaryCard
           label="Available balance"
@@ -70,6 +73,8 @@ export default async function WalletPage() {
         // key and collapses, while the next render gets a fresh one.
         idempotencyKey={crypto.randomUUID()}
       />
+
+      <PayoutDecisionPanel requests={pendingRequests} />
 
       <h2 className="mt-8 text-lg font-semibold">Transaction history</h2>
 
@@ -136,11 +141,6 @@ export default async function WalletPage() {
           </table>
         </div>
       )}
-
-      <p className="mt-4 text-muted">
-        A payout request appears as one row. The ledger rows behind it, the hold
-        and its release, are what the balances above are summed from.
-      </p>
     </>
   );
 }

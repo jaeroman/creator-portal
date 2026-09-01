@@ -217,3 +217,133 @@ export async function createPayoutRequest(
     throw error;
   }
 }
+
+// A request only ever leaves PENDING for one of these two, so the type says so
+// rather than every call site guarding against a decision of "pending".
+export type PayoutDecision = Exclude<PayoutStatus, typeof PayoutStatus.PENDING>;
+
+export type DecisionLedgerRow = {
+  type: LedgerEntryType;
+  amountMinor: number;
+  description: string;
+};
+
+const DECISIONS = [PayoutStatus.APPROVED, PayoutStatus.REJECTED] as const;
+
+// No trimming and no case folding. This value comes from a hidden input the app
+// renders itself, so anything else is malformed rather than untidy.
+export function parseDecision(raw: unknown): PayoutDecision | null {
+  return DECISIONS.includes(raw as PayoutDecision)
+    ? (raw as PayoutDecision)
+    : null;
+}
+
+const RELEASE_DESCRIPTIONS: Record<PayoutDecision, string> = {
+  [PayoutStatus.APPROVED]: "Hold released on approval",
+  [PayoutStatus.REJECTED]: "Hold released on rejection",
+};
+
+// The rows a decision appends, with no ids and no clock, so the signs and the
+// net effect are provable without a database. Both decisions release the hold
+// first; approval then spends it, which is why the pair nets to zero and only a
+// rejection returns money to the balance.
+export function decisionLedgerRows(
+  decision: PayoutDecision,
+  amountMinor: number,
+): DecisionLedgerRow[] {
+  const release: DecisionLedgerRow = {
+    type: LedgerEntryType.PAYOUT_HOLD_RELEASE,
+    amountMinor,
+    description: RELEASE_DESCRIPTIONS[decision],
+  };
+
+  if (decision === PayoutStatus.REJECTED) {
+    return [release];
+  }
+
+  return [
+    release,
+    {
+      type: LedgerEntryType.PAYOUT,
+      amountMinor: -amountMinor,
+      description: "Payout sent to the creator",
+    },
+  ];
+}
+
+export type DecidePayoutInput = {
+  creatorId: string;
+  payoutRequestId: string;
+  decision: PayoutDecision;
+};
+
+export type DecidePayoutResult =
+  | { kind: "decided"; decision: PayoutDecision; amountMinor: number }
+  | { kind: "already-decided"; status: PayoutStatus }
+  | { kind: "not-found" };
+
+const DECISION_NOTES: Record<PayoutDecision, string> = {
+  [PayoutStatus.APPROVED]: "Approved through the stand-in agency control.",
+  [PayoutStatus.REJECTED]: "Rejected through the stand-in agency control.",
+};
+
+export async function decidePayoutRequest(
+  client: PrismaClient,
+  { creatorId, payoutRequestId, decision }: DecidePayoutInput,
+): Promise<DecidePayoutResult> {
+  return withRetry(() =>
+    client.$transaction(async (tx) => {
+      // One timestamp for the request and every row behind it, so the decision
+      // and its ledger entries cannot disagree by a few milliseconds.
+      const decidedAt = new Date();
+
+      // The current status is part of the where clause rather than a branch
+      // above it, so a second decision matches zero rows and writes nothing.
+      // This, not the isolation level, is what stops a request rejected twice
+      // from releasing the hold twice and inventing money.
+      const { count } = await tx.payoutRequest.updateMany({
+        where: {
+          id: payoutRequestId,
+          creatorId,
+          status: PayoutStatus.PENDING,
+        },
+        data: {
+          status: decision,
+          decidedAt,
+          decisionNote: DECISION_NOTES[decision],
+        },
+      });
+
+      // Read after the update, not before it: the amount is needed either way,
+      // and reading here means a losing decision reports the status that
+      // actually won rather than the one it saw on the way in.
+      const request = await tx.payoutRequest.findFirst({
+        where: { id: payoutRequestId, creatorId },
+        select: { amountMinor: true, status: true },
+      });
+
+      if (!request) {
+        return { kind: "not-found" as const };
+      }
+
+      if (count === 0) {
+        return { kind: "already-decided" as const, status: request.status };
+      }
+
+      await tx.ledgerEntry.createMany({
+        data: decisionLedgerRows(decision, request.amountMinor).map((row) => ({
+          ...row,
+          creatorId,
+          payoutRequestId,
+          createdAt: decidedAt,
+        })),
+      });
+
+      return {
+        kind: "decided" as const,
+        decision,
+        amountMinor: request.amountMinor,
+      };
+    }, TRANSACTION_OPTIONS),
+  );
+}

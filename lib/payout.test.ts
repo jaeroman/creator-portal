@@ -1,10 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { LedgerEntryType, PayoutStatus } from "@/lib/generated/prisma/enums";
 import {
   checkAgainstBalance,
+  decisionLedgerRows,
   isRetryableTransactionError,
   parseAmountMinor,
+  parseDecision,
   withRetry,
+  type DecisionLedgerRow,
 } from "@/lib/payout";
 
 function amountOf(raw: unknown): number {
@@ -231,5 +235,83 @@ describe("withRetry", () => {
       code: "P2034",
     });
     expect(attempt).toHaveBeenCalledTimes(5);
+  });
+});
+
+function sumOf(rows: DecisionLedgerRow[]): number {
+  return rows.reduce((total, row) => total + row.amountMinor, 0);
+}
+
+describe("parseDecision", () => {
+  it("accepts the two decisions a request can move to", () => {
+    expect(parseDecision("APPROVED")).toBe(PayoutStatus.APPROVED);
+    expect(parseDecision("REJECTED")).toBe(PayoutStatus.REJECTED);
+  });
+
+  it("rejects PENDING, which is a status but never a decision", () => {
+    expect(parseDecision("PENDING")).toBeNull();
+  });
+
+  it("rejects a differently cased or padded value", () => {
+    expect(parseDecision("approved")).toBeNull();
+    expect(parseDecision("APPROVED ")).toBeNull();
+  });
+
+  it("rejects an empty string and a non-string", () => {
+    expect(parseDecision("")).toBeNull();
+    expect(parseDecision(1)).toBeNull();
+    expect(parseDecision(null)).toBeNull();
+    expect(parseDecision(undefined)).toBeNull();
+  });
+});
+
+describe("decisionLedgerRows", () => {
+  it("releases the hold exactly once on a rejection", () => {
+    const rows = decisionLedgerRows(PayoutStatus.REJECTED, 5000);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].type).toBe(LedgerEntryType.PAYOUT_HOLD_RELEASE);
+    expect(rows[0].amountMinor).toBe(5000);
+  });
+
+  it("returns the held funds to available balance on a rejection", () => {
+    expect(sumOf(decisionLedgerRows(PayoutStatus.REJECTED, 5000))).toBe(5000);
+  });
+
+  it("releases the hold and then pays out on an approval", () => {
+    const rows = decisionLedgerRows(PayoutStatus.APPROVED, 5000);
+
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.type)).toEqual([
+      LedgerEntryType.PAYOUT_HOLD_RELEASE,
+      LedgerEntryType.PAYOUT,
+    ]);
+    expect(rows.map((row) => row.amountMinor)).toEqual([5000, -5000]);
+  });
+
+  it("leaves available balance unchanged on an approval", () => {
+    expect(sumOf(decisionLedgerRows(PayoutStatus.APPROVED, 5000))).toBe(0);
+  });
+
+  // The money bug this function exists to make visible: a sign flipped here
+  // would either pay the creator twice or take the funds without paying.
+  it("holds both net effects for one minor unit and for a full balance", () => {
+    for (const amountMinor of [1, 128450]) {
+      expect(
+        sumOf(decisionLedgerRows(PayoutStatus.APPROVED, amountMinor)),
+      ).toBe(0);
+      expect(
+        sumOf(decisionLedgerRows(PayoutStatus.REJECTED, amountMinor)),
+      ).toBe(amountMinor);
+    }
+  });
+
+  it("gives each decision its own release description", () => {
+    expect(decisionLedgerRows(PayoutStatus.APPROVED, 5000)[0].description).toBe(
+      "Hold released on approval",
+    );
+    expect(decisionLedgerRows(PayoutStatus.REJECTED, 5000)[0].description).toBe(
+      "Hold released on rejection",
+    );
   });
 });
