@@ -76,7 +76,7 @@ cleaned-up checkbox version before generating the project overview.
   that yields a real available balance and pending earnings
 - [x] 2. **Portal shell** - shared layout and persistent navigation across the
   three routes
-- [ ] 3. **Connected accounts** - list each linked channel with connection state,
+- [x] 3. **Connected accounts** - list each linked channel with connection state,
   follower count, and last synced time, with connect and disconnect actions that
   persist
 - [ ] 4. **Recent posts feed** - unified list across channels sorted by date,
