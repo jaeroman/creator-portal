@@ -1,6 +1,6 @@
 # Creator Portal - Project Overview
 
-<!-- blueprint:source-hash 519b905ea4914d71e58ea661fcb4543b5bda5955189df36a1b605c9f32c045c4 -->
+<!-- blueprint:source-hash caba5cdb91c0f6f0b38b6424971a8f1b6206a2ccff7efcbf239d867ff218e113 -->
 
 > A single-creator portal for working with a talent agency: connected channels,
 > a unified post feed, and a wallet whose payout requests move through a real
@@ -20,7 +20,8 @@ creator request a payout against their balance.
 **Deliberate shape.** Breadth is intentionally shallow and seeded. One slice,
 the payout lifecycle, is built to production depth with real persistence, real
 transactions, and real failure behavior. Everything else exists to give that
-slice a believable home.
+slice a believable home. The build box is roughly three hours, with deployment
+time on top.
 
 ## Users
 
@@ -37,11 +38,13 @@ No access tiers. Every route is open and always resolves to the seeded creator.
 
 In build-plan order. Feature 6 is the headline.
 
-1. **Seeded portal data** - the Prisma schema, first migration, and a seed that
-   produces one creator, four channels, about a dozen posts, and a ledger with a
-   real available balance and pending earnings.
-2. **Portal shell** - shared layout and persistent navigation across the three
-   routes.
+1. **Seeded portal data** (shipped) - the Prisma schema, first migration, and a
+   seed producing one creator, four channels, twelve posts, and a ledger whose
+   sums give a real available balance and pending earnings.
+2. **Portal shell** (shipped) - shared layout, persistent navigation, the theme
+   tokens later features style against, and app-level loading, not-found, error,
+   and global-error states. Renders per request rather than prerendering, so the
+   database is never baked into the build.
 3. **Connected accounts** - each linked channel with its connection state,
    follower count, and last synced time, plus connect and disconnect actions
    that persist.
@@ -60,6 +63,9 @@ In build-plan order. Feature 6 is the headline.
    seed against the deployed database, and a verified live URL. Sits outside the
    three-hour build box.
 
+Deferred by decision, not oversight: live post fetching from a real source, an
+agency-side dashboard with its own auth, and payout status notifications.
+
 ## Data model
 
 Postgres via Prisma. **All money is an integer count of minor units (US cents).**
@@ -73,8 +79,8 @@ No floats anywhere in the money path.
 - `createdAt` (DateTime)
 - has many `ChannelAccount`, `LedgerEntry`, `PayoutRequest`
 
-Exactly one row exists. Features resolve it rather than taking a creator id from
-the client.
+Exactly one row exists. Server code resolves it through `getCreator()` in
+`lib/creator.ts`, never from a client-supplied id.
 
 ### ChannelAccount
 
@@ -136,6 +142,9 @@ Append-only. Rows are never updated or deleted; a correction is a new row.
 > Available balance falls out of the signed ledger with no special cases, because
 > a hold is already a negative row.
 
+Seeded totals the later features are written against: pending earnings 34000
+($340.00), available balance 128450 ($1,284.50).
+
 ### Payout lifecycle
 
 | Event | Ledger written | Effect on available |
@@ -143,6 +152,22 @@ Append-only. Rows are never updated or deleted; a correction is a new row.
 | Request submitted | `PAYOUT_HOLD` (negative) | Drops immediately |
 | Request rejected | `PAYOUT_HOLD_RELEASE` (positive) | Returns to prior amount |
 | Request approved | `PAYOUT_HOLD_RELEASE` (positive) and `PAYOUT` (negative) | Net unchanged, history shows the payout |
+
+### Transaction history shape
+
+Decided in project-plan §9. The wallet's history list is **not** raw ledger
+rows. It is two sources merged and sorted by date:
+
+- **one row per `PayoutRequest`**, carrying its amount, date, and status
+  (`PENDING`, `APPROVED`, or `REJECTED`), collapsing the one to three ledger
+  rows behind it into a single line
+- **each `LedgerEntry` with a null `payoutRequestId`** as its own row, which is
+  how earnings and adjustments stay visible
+
+This is a display choice only. Every figure, balances included, is still summed
+from the ledger. It does mean feature 5 reads `PayoutRequest` directly, so
+feature 6's approve and reject must keep `PayoutRequest.status` consistent with
+the ledger rows they write.
 
 ### Invariants the build must hold
 
@@ -188,21 +213,19 @@ ledger entries; modelling commission is out of scope.
 ## UI/UX
 
 An operations tool, not a marketing page: plain, dense, readable. Cards for
-summary figures, tables for lists. Light and dark both work through the existing
-theme tokens.
+summary figures, tables for lists. Light and dark both work through the theme
+tokens in `app/globals.css`.
 
 Styling stays minimal on the three read surfaces so the payout flow gets the
 time. Non-negotiable baseline: labelled form controls, visible focus states,
 status never signalled by color alone, and honest empty, loading, and error
 states wherever one can occur.
 
+- `/` - redirects to `/accounts`
 - `/accounts` - connected channels with connect and disconnect
 - `/posts` - unified feed, filtered by `?channel=<platform>`
 - `/wallet` - balance, pending earnings, transaction history, and the payout
   request flow
-
-> TODO: the plan does not say what `/` renders. Redirecting to `/accounts` is the
-> obvious call; confirm when feature 2 is spec'd.
 
 ## Deployment
 
@@ -226,21 +249,16 @@ Deployment time sits outside the three-hour build box.
 > Resolve these in the plans and re-run `/overview`, or settle them when the
 > affected feature is spec'd.
 
-1. **Neon is a prerequisite of feature 1, not feature 8.** Feature 1 runs the
-   first migration against a real database, so the Neon instance and a local
-   `DATABASE_URL` must exist before any build work starts. Feature 8 covers only
-   deploying the app.
-2. **Transaction history display is undecided** (carried from project-plan §9):
-   raw ledger rows, or each payout request grouped into one row with its status.
-   The append-only design writes two rows on approval, so this choice changes
-   what feature 5 renders.
-3. **`ADJUSTMENT` has no feature that writes it.** It exists in the data model
-   for ledger completeness. Either accept it as seed-only or drop it.
-4. **Post thumbnails need a source decision.** Remote URLs require
-   `images.remotePatterns` in `next.config.ts`; local placeholder files avoid
-   that. Feature 4 must pick one.
-5. **The test gate is not on yet.** The plan commits to Vitest, but `AGENTS.md`
-   declares no test command, so nothing enforces tests. Run `/tests` after
-   feature 1 so feature 6 can ship its coverage in the same diff.
-6. **Branch is `master` with no remote.** `/complete` merges to `main`, and the
-   plan targets a GitHub-connected Vercel deploy. Rename before the first push.
+1. **The test gate is still off.** The plan commits to Vitest, but `AGENTS.md`
+   declares no test command, so nothing enforces tests. Run `/tests` before
+   feature 6 so the payout logic ships its coverage in the same diff. This is
+   the only open item that blocks planned work.
+2. **Two feature 1 decisions live only in its archive, not in the plans.**
+   `blueprint/history/features/01-seeded-portal-data.md` settled them and the
+   shipped code follows them, but `project-plan.md` §4 does not record either:
+   - `ADJUSTMENT` is kept as a seed-only ledger type, exercised by exactly one
+     seeded row, because no feature writes it
+   - post thumbnails are local SVGs under `public/thumbnails/`, so
+     `next.config.ts` needs no `images.remotePatterns`
+   Fold them into §4 if the plan should be the record; otherwise the archive
+   stands and this item can be deleted.

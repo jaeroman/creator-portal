@@ -155,8 +155,11 @@ Deployment time sits outside the three-hour build box.
   connection configured correctly. Verify early, in feature 1, not in feature 6
 - **Risk:** the deployed database holds obviously seeded data on a public URL.
   Acceptable for a demo, worth a README line
-- **TODO:** decide whether transaction history shows raw ledger entries or
-  groups each payout request into one row with its status
+- **Decided:** transaction history groups each payout request into one row
+  carrying its status, rather than listing raw ledger entries. Ledger entries
+  with no payout request (earnings and adjustments) still appear as their own
+  rows, so the list is payout requests and non-payout entries merged and sorted
+  by date
 
 ## 10. Success criteria - how this is judged
 
