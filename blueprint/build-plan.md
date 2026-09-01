@@ -89,6 +89,12 @@ cleaned-up checkbox version before generating the project overview.
   pending, approve and reject transitions, and correctness under concurrent
   requests, with Vitest coverage on the logic. Expect this to split into 6a and
   6b when spec'd
+  - [x] 6a. **Request a payout** - the amount form on `/wallet`, parsing and
+    overdraft rejection, idempotent submission, and the serializable transaction
+    that re-reads available balance before writing the hold
+  - [ ] 6b. **Approve and reject** - stand-in agency controls that move a pending
+    request to approved or rejected, writing the release and payout ledger rows
+    and keeping `PayoutRequest.status` consistent with the ledger
 - [ ] 7. **README and handover** - which slice was built and why, how to run it,
   what is seeded versus real, and what was deliberately left out
 

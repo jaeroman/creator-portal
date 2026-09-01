@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import PayoutRequestForm from "@/components/wallet/PayoutRequestForm";
 import SummaryCard from "@/components/wallet/SummaryCard";
 import { PayoutStatus } from "@/lib/generated/prisma/enums";
 import { getCreator } from "@/lib/creator";
@@ -62,6 +63,13 @@ export default async function WalletPage() {
           note="Earned but not yet cleared, so it cannot be paid out yet."
         />
       </div>
+
+      <PayoutRequestForm
+        availableMinor={availableMinor}
+        // Minted per render, so a resubmit of this same form carries the same
+        // key and collapses, while the next render gets a fresh one.
+        idempotencyKey={crypto.randomUUID()}
+      />
 
       <h2 className="mt-8 text-lg font-semibold">Transaction history</h2>
 
